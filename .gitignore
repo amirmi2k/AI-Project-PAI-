@@ -1,0 +1,7 @@
+# Ignore massive virtual environments
+venv/
+env/
+__pycache__/
+
+# Ignore API keys and local environment variables
+.env
