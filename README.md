@@ -98,3 +98,101 @@ Install the required dependencies:
 
 ```bash
 pip install -r requirements.txt
+```
+
+## Quick Start (Download, Setup, Run)
+
+Follow these steps from scratch on Windows.
+
+### 1. Download the project
+
+Option A: Clone with Git
+
+```bash
+git clone <your-repo-url>
+cd "AI project (PAI)"
+```
+
+Option B: Download ZIP
+
+1. Open the repository page.
+2. Click **Code** -> **Download ZIP**.
+3. Extract the ZIP.
+4. Open a terminal in the extracted folder `AI project (PAI)`.
+
+### 2. Install Python
+
+1. Install Python 3.10 or newer from the official Python website.
+2. During installation, enable **Add Python to PATH**.
+3. Verify:
+
+```bash
+python --version
+```
+
+### 3. Create and activate a virtual environment
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+### 4. Install project dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 5. Install and run Ollama
+
+1. Install Ollama from the official Ollama website.
+2. Start Ollama (it should run on `http://127.0.0.1:11434`).
+3. Pull the model used by this project:
+
+```bash
+ollama pull llama3.1:latest
+```
+
+### 6. Run the AI system
+
+From the project root:
+
+```bash
+python main.py
+```
+
+The script runs built-in scenarios and prints structured JSON output, including fallback behavior if needed.
+
+## Run Tests
+
+You can run the included tests from the project root:
+
+```bash
+pytest "test connection"
+```
+
+If `pytest` is not installed:
+
+```bash
+pip install pytest
+pytest "test connection"
+```
+
+## Common Issues
+
+- Ollama not reachable:
+   - Ensure Ollama is running.
+   - Verify `http://127.0.0.1:11434` is accessible.
+   - Confirm the model is pulled: `ollama list`.
+
+- `python` command not found:
+   - Reinstall Python and enable **Add Python to PATH**.
+
+- Dependency install errors:
+   - Activate `.venv` first.
+   - Upgrade pip: `python -m pip install --upgrade pip`
+
+## Notes
+
+- The model is configured in `main.py` as `ollama/llama3.1:latest`.
+- If Ollama is unavailable, the app automatically uses an offline heuristic fallback path.
