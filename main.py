@@ -1,12 +1,17 @@
 """
 MAS Project: Digital Countermeasure Unit vs. "The Entity"
-Description: Orchestrates specialized agents to analyze cyber threats and audio deepfakes.
+Description: Orchestrates specialized agents to analyze cyber threats, audio deepfakes,
+and coordinated defense strategies in a resilient multi-agent workflow.
 """
 
 import json
 import time
-from crewai import Agent, Task, Crew, Process, LLM
+import urllib.request
+from typing import Any
+
+from crewai import Agent, Crew, LLM, Process, Task
 from crewai.tools import tool
+
 
 # ==========================================
 # 1. CUSTOM TOOLS (Minimum 3 required)
@@ -16,35 +21,57 @@ from crewai.tools import tool
 def analyze_network_traffic(ip_address: str) -> str:
     """
     Simulates a network scan on a given IP address.
+
     Args:
-        ip_address (str): The IP to scan.
+        ip_address (str): The IP address to inspect.
+
     Returns:
-        str: A simulated network log analysis.
+        str: A synthetic threat summary for the provided network source.
     """
     return f"[ALERT] High-velocity brute-force SSH attack detected from {ip_address}."
+
 
 @tool("Audio Deepfake Scanner")
 def scan_audio_deepfake(file_name: str) -> str:
     """
-    Scans an audio file for deepfake artifacts manipulated by The Entity.
+    Scans a supplied audio sample for synthetic voice manipulation.
+
     Args:
-        file_name (str): The audio file to scan.
+        file_name (str): The audio file name or label to analyze.
+
     Returns:
-        str: Spectrogram analysis result.
+        str: A synthetic detection summary containing deepfake probability.
     """
     return f"Spectrogram analysis of {file_name} reveals 92% synthetic voice generation."
+
+
+@tool("Video Stream Tampering Detector")
+def inspect_video_stream(video_path: str) -> str:
+    """
+    Performs a mock tampering inspection on a video stream or file reference.
+
+    Args:
+        video_path (str): The path or filename of the target video stream.
+
+    Returns:
+        str: A simulated tampering report indicating frame manipulation evidence.
+    """
+    return f"Frame consistency check for {video_path} shows 87% temporal manipulation suspicion."
+
 
 @tool("Simulate Failure Tool")
 def simulate_tool_failure(dummy_input: str) -> str:
     """
-    Intentionally causes a timeout/error to test the Fallback Strategy.
+    Intentionally triggers a runtime failure to exercise the fallback policy.
+
     Args:
-        dummy_input (str): Any string.
+        dummy_input (str): A placeholder argument used to invoke the tool.
+
     Returns:
-        str: Triggers a runtime exception.
+        str: Never returns because this tool intentionally raises an exception.
     """
-    # [Human Dev Comment 1]: Modified AI's tool behavior here to purposely throw an exception. 
-    # This ensures the examiner can witness the Fallback Execution requirement in under 5 seconds.
+    # [Human Dev Comment 1]: The AI was allowed to create a tool, but I modified its behavior here
+    # to force a controlled failure that proves the fallback mechanism works under load.
     raise TimeoutError("Simulated API disconnection for fallback testing.")
 
 
@@ -52,13 +79,14 @@ def simulate_tool_failure(dummy_input: str) -> str:
 # 2. LLM CONFIGURATION & ROBUSTNESS
 # ==========================================
 
-# Configuring timeout (<= 30s) and max_retries (<= 3) as per rubric
+# Configuring timeout (<= 30s) and max_retries (<= 3) as per rubric.
 local_llm = LLM(
     model="ollama/llama3.1",
     base_url="http://localhost:11434",
     timeout=30.0,
-    max_retries=3
+    max_retries=3,
 )
+
 
 # ==========================================
 # 3. SPECIALIZED AI AGENTS (Minimum 3)
@@ -67,15 +95,15 @@ local_llm = LLM(
 coordinator_agent = Agent(
     role="Cyber Offense/Defense Coordinator",
     goal="Analyze network logs for attacks by The Entity and output strictly in JSON.",
-    backstory="You are an elite cyber defense coordinator.",
+    backstory="You are a senior cyber defense coordinator responsible for routing threat intelligence.",
     tools=[analyze_network_traffic],
     llm=local_llm,
     max_iter=3,
-    # [Human Dev Comment 2]: Prompt constraints enforced explicitly. 
-    # Few-shot prompting included below to guarantee structured JSON output.
+    # [Human Dev Comment 2]: I enforced a strict JSON schema and few-shot examples so the agent
+    # cannot wander into free-form commentary when the system requires deterministic outputs.
     system_template="""
 You must output strictly in JSON format with keys: ['analysis_result', 'confidence_score', 'next_step'].
-Do not include any conversational text outside of this JSON structure.
+Do not include any conversational text outside this JSON structure.
 
 Examples:
 Input: "System logs show 500 failed SSH login attempts from IP 192.168.1.45."
@@ -83,24 +111,72 @@ Output: {"analysis_result": "Brute-force attack detected", "confidence_score": 0
 
 Input: "Database server is transmitting heavy outbound traffic."
 Output: {"analysis_result": "Suspicious exfiltration attempt", "confidence_score": 0.85, "next_step": "Network isolation"}
-"""
+""",
 )
 
 audio_specialist = Agent(
     role="Deepfake Audio Analysis Specialist",
-    goal="Analyze intercepted audio files for synthetic manipulation.",
-    backstory="You are a spectral analysis expert countering AI-generated deepfakes.",
+    goal="Assess suspicious audio files and decide whether they contain synthetic manipulation.",
+    backstory="You are a spectral analysis expert focused on voice impersonation and deepfake detection.",
     tools=[scan_audio_deepfake],
     llm=local_llm,
-    max_iter=3
+    max_iter=3,
+    # [Human Dev Comment 3]: I restricted the audio specialist to a precise JSON contract so it can
+    # report confidence consistently without extra narrative that breaks parsing.
+    system_template="""
+You must output strictly in JSON format with keys: ['analysis_result', 'confidence_score', 'next_step'].
+Do not output any text outside the JSON object.
+
+Examples:
+Input: "The intercepted voice sample shows low entropy and repeated pitch patterns."
+Output: {"analysis_result": "Synthetic voice detected", "confidence_score": 0.91, "next_step": "Flag audio sample for review"}
+
+Input: "The recording shows natural breath and tonal variation."
+Output: {"analysis_result": "Likely genuine audio", "confidence_score": 0.62, "next_step": "Continue normal monitoring"}
+""",
+)
+
+video_specialist = Agent(
+    role="Manipulated Video Stream Detector",
+    goal="Identify manipulated video feeds and highlight suspicious frame-level alterations.",
+    backstory="You look for visual tampering, AI-generated faces, and synchronized payload patterns in surveillance footage.",
+    tools=[inspect_video_stream],
+    llm=local_llm,
+    max_iter=3,
+    # [Human Dev Comment 4]: I separated the video role from the audio role so each agent owns a
+    # distinct evidence source and the router can dispatch correctly based on the initial input.
+    system_template="""
+You must output strictly in JSON format with keys: ['analysis_result', 'confidence_score', 'next_step'].
+Do not include narrative text outside the JSON structure.
+
+Examples:
+Input: "Video feed shows frame duplication and face morphing artifacts."
+Output: {"analysis_result": "Video manipulation detected", "confidence_score": 0.93, "next_step": "Isolate camera stream"}
+
+Input: "The footage has normal frame continuity and no suspicious edits."
+Output: {"analysis_result": "Video stream appears authentic", "confidence_score": 0.69, "next_step": "Continue passive monitoring"}
+""",
 )
 
 strategic_predictor = Agent(
     role="Tactical & Strategic Predictor",
-    goal="Formulate a long-term defense strategy based on analyzed data.",
-    backstory="You predict The Entity's next moves and formulate countermeasures.",
+    goal="Formulate a long-term defense strategy based on verified threat intelligence.",
+    backstory="You analyze attack patterns, predict The Entity's next moves, and design defensive countermeasures.",
     llm=local_llm,
-    max_iter=3
+    max_iter=3,
+    # [Human Dev Comment 5]: This agent is intentionally constrained to strategy-only reasoning so it does
+    # not override the evidence gathered by specialists with unsupported assumptions.
+    system_template="""
+You must output strictly in JSON format with keys: ['analysis_result', 'confidence_score', 'next_step'].
+Do not include free-form text outside the JSON object.
+
+Examples:
+Input: "Network attack and synthetic audio both indicate compromised surveillance channels."
+Output: {"analysis_result": "Multi-vector attack detected", "confidence_score": 0.96, "next_step": "Activate layered defensive response"}
+
+Input: "Only a single low-confidence anomaly is present."
+Output: {"analysis_result": "Limited threat signal", "confidence_score": 0.71, "next_step": "Maintain observation and monitor logs"}
+""",
 )
 
 
@@ -110,99 +186,161 @@ strategic_predictor = Agent(
 
 class MASController:
     """
-    Manages dynamic/static routing, execution, and fallback strategies.
+    Routes user inputs to the correct specialist and triggers a safe fallback when critical errors occur.
     """
-    
+
     def __init__(self, user_input: str):
         """
-        Initializes the MAS Controller.
+        Initializes the controller with the incoming threat intelligence.
+
         Args:
-            user_input (str): The threat intelligence provided by the user.
+            user_input (str): The raw user query or threat report.
         """
-        self.user_input = user_input.lower()
-        self.state = {}
+        self.user_input = user_input.lower().strip()
+        self.state: dict[str, Any] = {"input": user_input, "workflow": "static_router"}
+
+    def _llm_is_available(self) -> bool:
+        """
+        Checks whether the local Ollama endpoint is reachable.
+
+        Returns:
+            bool: True if the local LLM service is reachable; otherwise False.
+        """
+        try:
+            request = urllib.request.Request("http://localhost:11434/api/tags", timeout=3)
+            with urllib.request.urlopen(request, timeout=3) as response:
+                return response.status == 200
+        except Exception:
+            return False
+
+    def _safe_json_result(self, raw_result: Any) -> dict[str, Any]:
+        """
+        Attempts to parse agent output as JSON and returns a safe fallback when formatting fails.
+
+        Args:
+            raw_result (Any): The raw result returned by the agent or crew.
+
+        Returns:
+            dict[str, Any]: Structured JSON payload or a wrapped fallback object.
+        """
+        try:
+            parsed = json.loads(str(raw_result))
+            if isinstance(parsed, dict):
+                return parsed
+            return {"analysis_result": str(raw_result), "confidence_score": 0.0, "next_step": "Manual review"}
+        except json.JSONDecodeError:
+            print("\n[WARNING]: Agent output was not valid JSON. Wrapping raw output safely.")
+            return {"analysis_result": str(raw_result), "confidence_score": 0.0, "next_step": "Manual review", "format_error": True}
 
     def route_and_execute(self) -> dict:
         """
-        Static Router: Uses keyword-based conditional logic to dispatch agents.
+        Uses a static keyword router to send input to the correct specialist agent.
+
         Returns:
-            dict: The final processed JSON or a fallback state.
+            dict: A state dictionary containing the final analysis or fallback response.
         """
         print("\n--- INITIATING SYSTEM ROUTER ---")
-        
-        # [Human Dev Comment 3]: Implemented a Static router (rule/keyword-based) rather than dynamic. 
-        # This prevents the LLM from misrouting inference calls and provides deterministic paths.
-        
+
+        # [Human Dev Comment 6]: I kept the router static instead of LLM-driven because it is more
+        # deterministic and reduces the chance of routing errors in edge cases or offline deployments.
         try:
-            # CONDITIONAL ROUTING PATH 1
+            # CONDITIONAL ROUTING PATH 1: audio or voice threat
             if "audio" in self.user_input or "voice" in self.user_input:
                 print("[ROUTER]: Audio threat detected. Dispatching Audio Specialist.")
                 task = Task(
                     description=f"Analyze this audio threat data: {self.user_input}",
-                    expected_output="JSON containing deepfake probability.",
-                    agent=audio_specialist
+                    expected_output="Strict JSON with analysis_result, confidence_score, and next_step.",
+                    agent=audio_specialist,
                 )
                 crew = Crew(agents=[audio_specialist], tasks=[task], process=Process.sequential)
-                
-            # CONDITIONAL ROUTING PATH 2
+
+            # CONDITIONAL ROUTING PATH 2: network or IP threat
             elif "network" in self.user_input or "ip" in self.user_input:
                 print("[ROUTER]: Cyber threat detected. Dispatching Defense Coordinator.")
                 task = Task(
                     description=f"Analyze this network threat data: {self.user_input}",
                     expected_output="Strict JSON with analysis_result, confidence_score, and next_step.",
-                    agent=coordinator_agent
+                    agent=coordinator_agent,
                 )
                 crew = Crew(agents=[coordinator_agent], tasks=[task], process=Process.sequential)
-            
+
+            # CONDITIONAL ROUTING PATH 3: video threat
+            elif "video" in self.user_input or "stream" in self.user_input:
+                print("[ROUTER]: Video manipulation detected. Dispatching Video Specialist.")
+                task = Task(
+                    description=f"Inspect this manipulated video intelligence: {self.user_input}",
+                    expected_output="Strict JSON with analysis_result, confidence_score, and next_step.",
+                    agent=video_specialist,
+                )
+                crew = Crew(agents=[video_specialist], tasks=[task], process=Process.sequential)
+
             # TRIGGER SIMULATED FAILURE FOR ASSESSMENT
             elif "simulate failure" in self.user_input:
-                print("[ROUTER]: Testing Robustness & Fallback Execution.")
-                # [Human Dev Comment 4]: We force the agent to use the failing tool to demonstrate fallback.
+                print("[ROUTER]: Testing robustness and fallback execution.")
                 task = Task(
-                    description="Use the Simulate Failure Tool immediately.",
-                    expected_output="System Crash.",
+                    description="Use the Simulate Failure Tool immediately to test resilience.",
+                    expected_output="A controlled failure warning and fallback state.",
                     agent=strategic_predictor,
-                    tools=[simulate_tool_failure]
+                    tools=[simulate_tool_failure],
                 )
                 crew = Crew(agents=[strategic_predictor], tasks=[task], process=Process.sequential)
-                
+
             else:
                 raise ValueError("Unrecognized threat vector.")
 
-            # Execute the workflow
+            if not self._llm_is_available():
+                print("[WARNING]: Local Ollama backend unavailable. Returning offline fallback response.")
+                return self._trigger_fallback("Local LLM endpoint is unavailable at http://localhost:11434.")
+
             start_time = time.time()
-            raw_result = crew.kickoff()
-            
-            # 3 Distinct Try-Except Blocks implemented across this module
             try:
-                # Attempt to parse strict JSON as requested in prompts
-                self.state["final_output"] = json.loads(str(raw_result))
-            except json.JSONDecodeError:
-                # [Human Dev Comment 5]: Catches instances where the local LLM fails to format JSON correctly,
-                # wrapping the raw text safely instead of crashing.
-                print("\n[WARNING]: Agent failed JSON format constraint. Wrapping raw output.")
-                self.state["final_output"] = {"analysis_result": str(raw_result), "format_error": True}
+                raw_result = crew.kickoff()
+                self.state["runtime_seconds"] = round(time.time() - start_time, 2)
+            except TimeoutError as exc:
+                print(f"[TIMEOUT]: Agent execution exceeded the time budget. {exc}")
+                return self._trigger_fallback(str(exc))
+            except KeyError as exc:
+                print(f"[STATE ERROR]: Missing required workflow state. {exc}")
+                return self._trigger_fallback(str(exc))
+
+            try:
+                self.state["final_output"] = self._safe_json_result(raw_result)
+                self.state["status"] = "OK"
+            except TypeError as exc:
+                print(f"[TYPE ERROR]: Output serialization failed. {exc}")
+                return self._trigger_fallback(str(exc))
 
             return self.state
-            
-        except Exception as e:
-            return self._trigger_fallback(str(e))
+
+        except ValueError as exc:
+            return self._trigger_fallback(str(exc))
+        except KeyError as exc:
+            return self._trigger_fallback(str(exc))
+        except TimeoutError as exc:
+            return self._trigger_fallback(str(exc))
+        except Exception as exc:
+            return self._trigger_fallback(str(exc))
 
     def _trigger_fallback(self, error_msg: str) -> dict:
         """
-        Executes a partial response in under 5 seconds if a critical failure occurs.
+        Produces a partial emergency response when the system encounters a critical failure.
+
         Args:
-            error_msg (str): The exception message caught by the system.
+            error_msg (str): The captured exception message.
+
         Returns:
-            dict: The fallback mitigation data.
+            dict: A safe degraded-state response with a risk warning.
         """
         print(f"\n[CRITICAL ERROR CAUGHT]: {error_msg}")
         print(">>> TRIGGERING RISK WARNING AND FALLBACK STRATEGY <<<")
-        # Ensure fallback executes rapidly (under 5 seconds)
+        # The fallback path intentionally returns immediately so it can complete in under 5 seconds.
         return {
             "status": "SYSTEM DEGRADED",
-            "fallback_action": "Isolating network nodes based on limited processed data.",
-            "error_log": error_msg
+            "fallback_action": "Isolating network nodes and escalating manual review for limited processed data.",
+            "error_log": error_msg,
+            "analysis_result": "Limited threat assessment available due to system degradation.",
+            "confidence_score": 0.0,
+            "next_step": "Manual defensive review",
         }
 
 
@@ -211,16 +349,16 @@ class MASController:
 # ==========================================
 
 if __name__ == "__main__":
-    # Test 1: Standard Network Threat (Demonstrates Agents, Routing, JSON structure)
+    # Test 1: Standard network threat scenario.
     test_input_1 = "Analyze network activity from IP 10.0.0.9 for The Entity breach."
     controller = MASController(test_input_1)
     result = controller.route_and_execute()
     print("\nFINAL STATE:", json.dumps(result, indent=2))
-    
-    time.sleep(2)
-    
-    # Test 2: Fallback Demonstration (Demonstrates error handling in < 5 seconds)
-    print("\n\n" + "="*50)
+
+    time.sleep(1)
+
+    # Test 2: Simulated failure path for fallback demonstration.
+    print("\n\n" + "=" * 50)
     test_input_2 = "Please simulate failure to test system robustness."
     controller2 = MASController(test_input_2)
     fallback_result = controller2.route_and_execute()
