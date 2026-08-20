@@ -1,0 +1,12 @@
+[
+  {
+    "file_name": "normal_call.wav",
+    "synthetic_probability": 0.12,
+    "anomalies": "None."
+  },
+  {
+    "file_name": "exec_voicemail.wav",
+    "synthetic_probability": 0.94,
+    "anomalies": "Unnatural pitch shifts; cloned vocal markers present."
+  }
+]

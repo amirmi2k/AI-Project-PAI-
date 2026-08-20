@@ -1,0 +1,12 @@
+[
+  {
+    "video_id": "cam_01.mp4",
+    "tamper_score": 0.05,
+    "frame_analysis": "Continuous timestamp continuity."
+  },
+  {
+    "video_id": "cam_04.mp4",
+    "tamper_score": 0.88,
+    "frame_analysis": "Duplicate frame glitches detected at 00:14."
+  }
+]
