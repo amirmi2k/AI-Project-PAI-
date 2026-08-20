@@ -10,6 +10,43 @@ import concurrent.futures
 from typing import Any
 from crewai import Crew, Process, Task
 
+import os
+
+def seed_synthetic_datasets():
+    """Generates the required JSON datasets automatically if they are missing."""
+    print("\n[INIT] Bootstrapping synthetic threat datasets...")
+
+    # 1. Cyber Threat Data
+    if not os.path.exists("server_logs.json"):
+        cyber_data = [
+            {"timestamp": "2026-08-20T02:00:15Z", "ip": "192.168.1.50", "event": "successful_login", "protocol": "SSH"},
+            {"timestamp": "2026-08-20T02:05:22Z", "ip": "10.0.0.9", "event": "failed_login", "protocol": "SSH", "notes": "Invalid cryptographic key presented."},
+            {"timestamp": "2026-08-20T02:05:23Z", "ip": "10.0.0.9", "event": "failed_login", "protocol": "SSH", "notes": "High-velocity brute-force pattern detected."}
+        ]
+        with open("server_logs.json", "w") as f:
+            json.dump(cyber_data, f, indent=2)
+        print("  -> Created server_logs.json")
+
+    # 2. Audio Deepfake Data
+    if not os.path.exists("audio_scan_results.json"):
+        audio_data = [
+            {"file_name": "normal_call.wav", "synthetic_probability": 0.12, "anomalies": "None."},
+            {"file_name": "exec_voicemail.wav", "synthetic_probability": 0.94, "anomalies": "Unnatural pitch shifts; cloned vocal markers present."}
+        ]
+        with open("audio_scan_results.json", "w") as f:
+            json.dump(audio_data, f, indent=2)
+        print("  -> Created audio_scan_results.json")
+
+    # 3. Video Tampering Data
+    if not os.path.exists("video_scan_results.json"):
+        video_data = [
+            {"video_id": "cam_01.mp4", "tamper_score": 0.05, "frame_analysis": "Continuous timestamp continuity."},
+            {"video_id": "cam_04.mp4", "tamper_score": 0.88, "frame_analysis": "Duplicate frame glitches detected at 00:14."}
+        ]
+        with open("video_scan_results.json", "w") as f:
+            json.dump(video_data, f, indent=2)
+        print("  -> Created video_scan_results.json")
+
 # Import your separated tools and agents from the other files
 from tools import simulate_tool_failure
 from agents import coordinator_agent, audio_specialist, video_specialist, strategic_predictor
@@ -111,13 +148,17 @@ class MASController:
 
 
 if __name__ == "__main__":
-    # A complex threat report designed to trigger all 4 agents
+    # Step 1: Automatically generate the JSON files
+    seed_synthetic_datasets()
+
+    # Step 2: Define the threat report
     master_incident_report = (
         "At 0200 hours, server 10.0.0.9 experienced a massive brute-force SSH attack. "
         "Simultaneously, intercepted audio file 'exec_voicemail.wav' showed unnatural pitch shifts, "
         "and security camera feed 'cam_04.mp4' exhibited duplicate frame glitches."
     )
 
+    # Step 3: Run the system
     controller = MASController(master_incident_report)
     final_output = controller.execute_pipeline()
     
