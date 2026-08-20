@@ -162,5 +162,39 @@ if __name__ == "__main__":
     controller = MASController(master_incident_report)
     final_output = controller.execute_pipeline()
     
-    print("\nFINAL PIPELINE STATE:")
-    print(json.dumps(final_output, indent=2))
+   # --- HUMAN-READABLE TERMINAL REPORT ---
+    print("\n" + "="*70)
+    print(" 🛡️  PROJECT SENTINEL: EXECUTIVE INCIDENT REPORT  🛡️ ")
+    print("="*70)
+
+    # Extract the core data from the JSON dictionary
+    data = final_output.get("final_output", {})
+    analysis = data.get("analysis_result", "No analysis provided.")
+    confidence = data.get("confidence_score", "N/A")
+    next_step = data.get("next_step", "No steps provided.")
+    runtime = final_output.get("runtime_seconds", "0")
+
+    print(f"\n⏱️  EXECUTION TIME : {runtime} seconds")
+    print(f"🎯 CONFIDENCE SCORE: {confidence}%\n")
+
+    print("-" * 70)
+    print("🔍 THREAT ANALYSIS:")
+    print(f"{analysis}\n")
+
+    print("-" * 70)
+    print("🚀 RECOMMENDED COUNTERMEASURES:")
+
+    # Llama 3.1 sometimes outputs lists/dictionaries for the next steps. 
+    # This safely formats it whether it's a string or a complex list.
+    if isinstance(next_step, dict):
+        for category, actions in next_step.items():
+            print(f"\n>> {category.upper()}:")
+            for action in actions:
+                print(f"   * {action}")
+    elif isinstance(next_step, list):
+        for action in next_step:
+            print(f"   * {action}")
+    else:
+        print(f"   * {next_step}")
+        
+    print("\n" + "="*70)
