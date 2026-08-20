@@ -96,7 +96,7 @@ class MASController:
             # we enforce a hard cutoff at 29 seconds for the entire pipeline execution.
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(full_crew.kickoff)
-                raw_result = future.result(timeout=29.0)
+                raw_result = future.result(timeout=180.0)
             
             self.state["runtime_seconds"] = round(time.time() - start_time, 2)
             self.state["final_output"] = self._safe_json_result(raw_result)
