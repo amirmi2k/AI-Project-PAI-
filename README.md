@@ -1,198 +1,127 @@
-# Digital Countermeasure Unit Against "The Entity"
+# Project Sentinel: Multi-Agent Cyber Defense System
 
-A Multi-Agent System (MAS) built with CrewAI to simulate a cyber defense and counterintelligence workflow against an advanced rogue AI threat known as "The Entity". The system routes incoming threat data to specialized agents, analyzes cyber, audio, and video risks, and produces structured defensive recommendations.
+Project Sentinel is a CrewAI multi-agent system that simulates a cyber defense and counterintelligence workflow against an advanced rogue AI threat known as "The Entity". It uses a local Llama 3.1 model through Ollama, so incident analysis does not depend on an external cloud API.
 
-This project is implemented in [main.py](main.py) and uses local Ollama models for inference.
+## 1. Project Overview
 
-## Project Overview
+When given an incident report, the system:
 
-The system is designed to process complex multi-step security inputs and coordinate multiple specialist agents to detect:
+1. Generates synthetic network, audio, and video evidence files when they are missing.
+2. Runs four specialist agents in a sequential pipeline.
+3. Uses Python tools to read and analyze the local JSON evidence.
+4. Combines the findings into a human-readable executive incident report.
 
-- cyber intrusion attempts
-- suspicious network activity
-- voice deepfake or manipulated audio indicators
-- video stream tampering or manipulation
-- strategic defense recommendations
+## 2. System Architecture
 
-The project uses a static routing mechanism to dispatch requests to the relevant agent, while also including a fallback mechanism to prevent crashes during model failures or malformed outputs.
+### Orchestrator: `main.py`
 
-## System Architecture
+`MASController` initializes the datasets, checks whether Ollama is available, executes the CrewAI pipeline, extracts malformed JSON safely, and returns a `SYSTEM DEGRADED` fallback when the local model is unavailable, times out, or raises an error.
 
-### Router / Supervisor
-The router receives the user input and decides which specialist agent should handle it based on keywords and threat categories.
+### Agents: `agents.py`
 
-Router types:
-- Static router
-- Keyword-based conditional dispatch
-- Deterministic path selection for safety and repeatability
+The crew contains four specialized AI personas:
 
-### Specialized Agents
-The project includes 4 distinct agents:
+1. **Cyber Offense/Defense Coordinator:** Analyzes SSH brute-force attempts and network anomalies.
+2. **Deepfake Audio Specialist:** Evaluates spectral analysis data for synthetic voice markers.
+3. **Manipulated Video Detector:** Inspects surveillance logs for frame tampering.
+4. **Tactical & Strategic Predictor:** Inherits the first three outputs and formulates a unified defense strategy.
 
-1. Cyber Offense/Defense Coordinator
-   - handles network threats, suspicious IP behavior, and cyber intrusion analysis
+### Forensic Tools: `tools.py`
 
-2. Deepfake Audio Analysis Specialist
-   - detects manipulated or synthetic audio evidence
+Agents use custom tools backed by local JSON files:
 
-3. Manipulated Video Stream Detector
-   - inspects suspicious or tampered video streams
+- `Network Traffic Analyzer` reads `server_logs.json`.
+- `Audio Deepfake Scanner` reads `audio_scan_results.json`.
+- `Video Stream Tampering Detector` reads `video_scan_results.json`.
+- `Simulate Failure Tool` raises a controlled timeout to exercise fallback behavior.
 
-4. Tactical & Strategic Predictor
-   - formulates defense strategies and longer-term countermeasures
+## 3. Technical Design
 
-### Custom Tools
-The system includes a minimum of 3 custom tools:
+### Workflow and Communication
 
-- Network Traffic Analyzer
-- Audio Deepfake Scanner
-- Video Stream Tampering Detector
-- Simulate Failure Tool
+The system uses a sequential multi-agent pipeline. The cyber, audio, and video tasks run first. Their outputs are passed to the Tactical & Strategic Predictor through CrewAI's `context` parameter, allowing the final strategy to be grounded in evidence from all three domains.
 
-## Communication Workflow
+### Robustness and Fallbacks
 
-The agent workflow follows a sequential multi-agent pipeline:
+Two defensive mechanisms protect the workflow from unreliable local model output:
 
-1. Input is received
-2. Router identifies the threat type
-3. Appropriate agent is selected
-4. Task is executed using the assigned model
-5. Result is validated and structured as JSON
-6. Fallback process is triggered if needed
+1. **Execution timeout:** The pipeline runs inside a `ThreadPoolExecutor`. If processing exceeds the configured limit, the controller returns a safe degraded-system response instead of crashing.
+2. **Safe JSON extraction:** `_safe_json_result` tries normal JSON parsing first, then uses a regular expression to extract a JSON object from surrounding conversational or Markdown text. If parsing still fails, it returns the raw output with a zero confidence score and requests manual review.
 
-This design ensures that specialist roles remain clear and that monitoring and error handling remain robust.
+### AI Usage and Human Engineering
 
-## Fallback & Risk Mitigation
+AI assistance was used for initial CrewAI boilerplate and tool docstrings. The project-specific engineering includes synthetic dataset bootstrapping, local JSON file I/O, resilient model-output parsing, controlled failure handling, and recursive formatting for the terminal executive report.
 
-The system includes a fallback mechanism to handle:
+## 4. Installation Guide
 
-- unavailable local LLM endpoints
-- malformed JSON output from the model
-- tool execution errors
-- retry/timeout issues
-- unexpected exceptions
+### Step 1: Open the Project
 
-When the model fails or a simulated failure is triggered, the system does not crash. Instead, it produces a partial, safe response based on available processed information and logs the risk state.
+Open a terminal in the project directory. Python 3.10 or newer is recommended.
 
-## Technical Requirements Covered
+### Step 2: Create a Virtual Environment
 
-- Minimum 3 distinct agents implemented
-- Minimum 3 custom tools implemented
-- At least 2 conditional routing paths present
-- LLM timeout and retry configuration included
-- Multiple exception handling blocks implemented
-- Strict JSON output enforcement in agent prompts
-- Few-shot prompting examples included
-- Docstrings used for methods and custom tools
-- Inline explanatory comments included
+On Windows PowerShell:
 
-## Project Files
-
-- [main.py](main.py) - Main MAS implementation
-- [requirements.txt](requirements.txt) - Python dependencies
-- [test_main.py](test_main.py) - Regression tests for offline analysis logic
-
-## Requirements
-
-Install the required dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-## Quick Start (Download, Setup, Run)
-
-Follow these steps from scratch on Windows.
-
-### 1. Download the project
-
-Option A: Clone with Git
-
-```bash
-git clone <your-repo-url>
-cd "AI project (PAI)"
-```
-
-Option B: Download ZIP
-
-1. Open the repository page.
-2. Click **Code** -> **Download ZIP**.
-3. Extract the ZIP.
-4. Open a terminal in the extracted folder `AI project (PAI)`.
-
-### 2. Install Python
-
-1. Install Python 3.10 or newer from the official Python website.
-2. During installation, enable **Add Python to PATH**.
-3. Verify:
-
-```bash
-python --version
-```
-
-### 3. Create and activate a virtual environment
-
-```bash
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\Activate.ps1
+pip install crewai
 ```
 
-### 4. Install project dependencies
+On macOS or Linux:
 
 ```bash
-pip install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+pip install crewai
 ```
 
-### 5. Install and run Ollama
+### Step 3: Install and Start Ollama
 
-1. Install Ollama from the official Ollama website.
-2. Start Ollama (it should run on `http://127.0.0.1:11434`).
-3. Pull the model used by this project:
+1. Install Ollama from [ollama.com](https://ollama.com/).
+2. Start Ollama and confirm that it is available at `http://127.0.0.1:11434`.
+3. Pull the required model:
 
 ```bash
-ollama pull llama3.1:latest
+ollama pull llama3.1
 ```
 
-### 6. Run the AI system
+## 5. Running the System
 
-From the project root:
+Run the default scenario from the project directory:
 
 ```bash
 python main.py
 ```
 
-The script runs built-in scenarios and prints structured JSON output, including fallback behavior if needed.
+The program creates the JSON evidence files if necessary, runs the four-agent analysis, and prints an executive incident report in the terminal.
 
-## Run Tests
+## 6. Testing Dynamic Responses
 
-You can run the included tests from the project root:
+To test a different incident:
 
-```bash
-pytest "test connection"
+1. Open `main.py`.
+2. Find `master_incident_report` near the bottom of the file.
+3. Replace its value with a new scenario, for example:
+
+```python
+master_incident_report = (
+	"A user reported that the main lobby camera feed freezes every five seconds, "
+	"but the network logs appear normal."
+)
 ```
 
-If `pytest` is not installed:
+4. Save the file and run `python main.py` again.
 
-```bash
-pip install pytest
-pytest "test connection"
-```
+The agents should adapt their analysis and recommend a response based on the new incident context and available evidence.
 
-## Common Issues
+## 7. Project Files
 
-- Ollama not reachable:
-   - Ensure Ollama is running.
-   - Verify `http://127.0.0.1:11434` is accessible.
-   - Confirm the model is pulled: `ollama list`.
-
-- `python` command not found:
-   - Reinstall Python and enable **Add Python to PATH**.
-
-- Dependency install errors:
-   - Activate `.venv` first.
-   - Upgrade pip: `python -m pip install --upgrade pip`
-
-## Notes
-
-- The model is configured in `main.py` as `ollama/llama3.1:latest`.
-- If Ollama is unavailable, the app automatically uses an offline heuristic fallback path.
+| File | Purpose |
+| --- | --- |
+| `main.py` | Seeds evidence, orchestrates the crew, and prints the report |
+| `agents.py` | Configures Ollama and defines the four agents |
+| `tools.py` | Defines the local forensic analysis tools |
+| `server_logs.json` | Network evidence dataset |
+| `audio_scan_results.json` | Audio analysis dataset |
+| `video_scan_results.json` | Video tampering dataset |

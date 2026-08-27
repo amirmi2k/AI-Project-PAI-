@@ -126,12 +126,14 @@ class MASController:
         )
 
         # 4. Strategic Task (Synthesizes the first 3)
+       
         task_strategy = Task(
             description="Review the intelligence gathered by the network, audio, and video specialists. Formulate a final countermeasure strategy.",
-            expected_output="Strict JSON with analysis_result, confidence_score, and next_step.",
+            expected_output="Strict JSON with analysis_result, confidence_score, confidence_justification, and next_step.",
             agent=strategic_predictor,
             context=[task_cyber, task_audio, task_video] # Explicitly links the previous outputs
         )
+        
 
         # Assemble the full crew
         full_crew = Crew(
@@ -212,7 +214,13 @@ if __name__ == "__main__":
     print("-" * 75)
     print("🔍 EXECUTIVE SUMMARY (THREAT ANALYSIS):")
     print("-" * 75)
-    print(textwrap.fill(str(analysis), width=75))
+    
+    # If the AI outputs a dictionary/list instead of a paragraph, format it cleanly
+    if isinstance(analysis, (dict, list)):
+        import json
+        print(json.dumps(analysis, indent=2))
+    else:
+        print(textwrap.fill(str(analysis), width=75))
     print("\n")
 
     # 4. SHOW THE AI'S STRATEGY
@@ -223,8 +231,26 @@ if __name__ == "__main__":
     if isinstance(next_step, dict):
         for category, actions in next_step.items():
             print(f"\n>> {category.upper()}:")
-            for action in actions:
-                print(f"   • {action}")
+            
+            if isinstance(actions, str):
+                wrapped_text = textwrap.fill(actions, width=70, subsequent_indent="     ")
+                print(f"   • {wrapped_text}")
+                
+            elif isinstance(actions, list):
+                for action in actions:
+                    print(f"   • {action}")
+                    
+            # THE NEW FIX: If the AI nests another dictionary inside
+            elif isinstance(actions, dict):
+                for sub_key, sub_value in actions.items():
+                    # Clean up the key (e.g., "network_defenses" -> "Network Defenses")
+                    clean_key = str(sub_key).replace('_', ' ').title()
+                    wrapped_val = textwrap.fill(str(sub_value), width=65, subsequent_indent="         ")
+                    print(f"   • [{clean_key}]: {wrapped_val}")
+                    
+            else:
+                print(f"   • {str(actions)}")
+                
     elif isinstance(next_step, list):
         for action in next_step:
             print(f"   • {action}")
