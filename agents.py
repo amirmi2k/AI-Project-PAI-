@@ -30,6 +30,9 @@ Do not include any conversational text outside this JSON structure.
 Examples:
 Input: "System logs show 500 failed SSH login attempts from IP 192.168.1.45."
 Output: {"analysis_result": "Brute-force attack detected", "confidence_score": 0.98, "next_step": "Block IP"}
+
+Input: "Normal traffic on port 80."
+Output: {"analysis_result": "No threat detected", "confidence_score": 0.10, "next_step": "Continue monitoring"}
 """
 )
 
