@@ -74,12 +74,12 @@ strategic_predictor = Agent(
     llm=local_llm,
     max_iter=3,
     system_template="""
-You must output strictly in JSON format with keys: ['analysis_result', 'confidence_score', 'next_step'].
+You must output strictly in JSON format with keys: ['analysis_result', 'confidence_score', 'confidence_justification', 'next_step'].
 Do not include free-form text outside the JSON object.
 DO NOT include any comments (like // or /*) inside the JSON block. Output ONLY raw, parseable JSON.
 
 Examples:
 Input: "Network attack and synthetic audio both indicate compromised surveillance channels."
-Output: {"analysis_result": "Multi-vector attack detected", "confidence_score": 0.96, "next_step": "Activate layered defensive response"}
+Output: {"analysis_result": "Multi-vector attack detected", "confidence_score": 0.96, "confidence_justification": "Audio tool returned 0.94 synthetic probability and network logs show 500 failed SSH attempts, yielding high overall certainty.", "next_step": "Activate layered defensive response"}
 """
 )

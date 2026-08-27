@@ -176,17 +176,20 @@ if __name__ == "__main__":
     final_output = controller.execute_pipeline()
     
 # --- HUMAN-READABLE EXECUTIVE REPORT ---
+    import textwrap
+
     print("\n" + "="*75)
     print(" 🛡️  PROJECT SENTINEL: EXECUTIVE INCIDENT REPORT  🛡️ ")
     print("="*75)
 
     # Extract the core data safely
+    input_context = final_output.get("input", "No input context provided.")
     data = final_output.get("final_output", {})
     analysis = data.get("analysis_result", "No threat analysis provided.")
     confidence = data.get("confidence_score", 0)
     next_step = data.get("next_step", "No steps provided.")
     runtime = final_output.get("runtime_seconds", "0")
-
+    justification = data.get("confidence_justification", "No justification provided.")
     # Format the confidence score beautifully
     try:
         conf_percent = float(confidence)
@@ -195,22 +198,28 @@ if __name__ == "__main__":
     except (ValueError, TypeError):
         conf_percent = confidence
 
-    print(f"\n⏱️  SYSTEM EXECUTION TIME : {runtime} seconds")
-    print(f"🎯 AI CONFIDENCE LEVEL  : {conf_percent}%\n")
+    # 1. SHOW THE CONTEXT (The Input)
+    print("\n🚨 INCIDENT BRIEF (SYSTEM INPUT):")
+    print("-" * 75)
+    print(textwrap.fill(str(input_context), width=75))
 
+    # 2. SHOW THE METRICS
+    print(f"\n⏱️  SYSTEM EXECUTION TIME : {runtime} seconds")
+    print(f"🎯 AI CONFIDENCE LEVEL  : {conf_percent}%")
+    print(f"🧠 CONFIDENCE RATIONALE : {justification}\n")
+    
+    # 3. SHOW THE AI'S ANALYSIS
     print("-" * 75)
     print("🔍 EXECUTIVE SUMMARY (THREAT ANALYSIS):")
     print("-" * 75)
-    # Break long text into a readable paragraph
-    import textwrap
     print(textwrap.fill(str(analysis), width=75))
     print("\n")
 
+    # 4. SHOW THE AI'S STRATEGY
     print("-" * 75)
     print("🚀 REQUIRED ACTIONS (COUNTERMEASURES):")
     print("-" * 75)
     
-    # Format the steps cleanly whether they are lists, dicts, or strings
     if isinstance(next_step, dict):
         for category, actions in next_step.items():
             print(f"\n>> {category.upper()}:")
@@ -220,7 +229,6 @@ if __name__ == "__main__":
         for action in next_step:
             print(f"   • {action}")
     else:
-        # If it's a long string, wrap it nicely
         print(textwrap.fill(str(next_step), width=75))
         
     print("\n" + "="*75)
