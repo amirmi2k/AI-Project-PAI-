@@ -65,7 +65,7 @@ On Windows PowerShell:
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install crewai
+pip install crewai streamlit
 ```
 
 On macOS or Linux:
@@ -73,7 +73,7 @@ On macOS or Linux:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install crewai
+pip install crewai streamlit
 ```
 
 ### Step 3: Install and Start Ollama
@@ -95,6 +95,16 @@ python main.py
 ```
 
 The program creates the JSON evidence files if necessary, runs the four-agent analysis, and prints an executive incident report in the terminal.
+
+### Launch the Streamlit Dashboard
+
+From the project directory, with the virtual environment activated, run:
+
+```bash
+streamlit run main.py
+```
+
+Streamlit opens the Project Sentinel dashboard in your browser. Enter an incident report and select **Deploy Agents** to start the analysis.
 
 ## 6. Testing Dynamic Responses
 

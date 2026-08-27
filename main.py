@@ -8,15 +8,18 @@ import time
 import urllib.request
 import concurrent.futures
 from typing import Any
-from crewai import Crew, Process, Task
 import re
 import os
+from crewai import Crew, Process, Task
+
+# Forcefully disable CrewAI telemetry for offline Air-Gapped execution
+os.environ["CREWAI_TELEMETRY_OPT_OUT"] = "true"
+os.environ["OTEL_SDK_DISABLED"] = "true"
 
 def seed_synthetic_datasets():
     """Generates the required JSON datasets automatically if they are missing."""
     print("\n[INIT] Bootstrapping synthetic threat datasets...")
-
-    # 1. Cyber Threat Data
+    
     if not os.path.exists("server_logs.json"):
         cyber_data = [
             {"timestamp": "2026-08-20T02:00:15Z", "ip": "192.168.1.50", "event": "successful_login", "protocol": "SSH"},
@@ -27,7 +30,6 @@ def seed_synthetic_datasets():
             json.dump(cyber_data, f, indent=2)
         print("  -> Created server_logs.json")
 
-    # 2. Audio Deepfake Data
     if not os.path.exists("audio_scan_results.json"):
         audio_data = [
             {"file_name": "normal_call.wav", "synthetic_probability": 0.12, "anomalies": "None."},
@@ -37,7 +39,6 @@ def seed_synthetic_datasets():
             json.dump(audio_data, f, indent=2)
         print("  -> Created audio_scan_results.json")
 
-    # 3. Video Tampering Data
     if not os.path.exists("video_scan_results.json"):
         video_data = [
             {"video_id": "cam_01.mp4", "tamper_score": 0.05, "frame_analysis": "Continuous timestamp continuity."},
@@ -52,11 +53,14 @@ from tools import simulate_tool_failure
 from agents import coordinator_agent, audio_specialist, video_specialist, strategic_predictor
 
 class MASController:
-    """Manages the end-to-end multi-agent pipeline and enforces system robustness."""
-
     def __init__(self, incident_report: str):
-        self.incident_report = incident_report.strip()
-        self.state: dict[str, Any] = {"input": self.incident_report, "workflow": "sequential_pipeline"}
+        self.incident_report = incident_report
+        self.state = {
+            "input": incident_report,
+            "runtime_seconds": 0.0,
+            "status": "INITIALIZED",
+            "final_output": None
+        }
 
     def _llm_is_available(self) -> bool:
         try:
@@ -68,15 +72,13 @@ class MASController:
     def _safe_json_result(self, raw_result: Any) -> dict[str, Any]:
         raw_str = str(raw_result)
         try:
-            # Attempt 1: Try to parse it perfectly
             parsed = json.loads(raw_str)
             if isinstance(parsed, dict):
                 return parsed
         except json.JSONDecodeError:
-            pass # Move to Attempt 2
+            pass 
 
         try:
-            # Attempt 2: Forcefully extract the JSON block using Regex, ignoring conversational text
             match = re.search(r'\{.*\}', raw_str, re.DOTALL)
             if match:
                 parsed = json.loads(match.group(0))
@@ -104,7 +106,7 @@ class MASController:
         if not self._llm_is_available():
             return self._trigger_fallback("Local LLM endpoint is unavailable at http://127.0.0.1:11434.")
 
-        # 1. DEFINE ALL POTENTIAL TASKS
+        # 1. DEFINE TASKS
         task_cyber = Task(
             description=f"Analyze network indicators in this report: {self.incident_report}",
             expected_output="Strict JSON with analysis_result, confidence_score, and next_step.",
@@ -123,38 +125,32 @@ class MASController:
             agent=video_specialist
         )
 
-        # Strategy Task for Route A (Full Context)
         task_strategy_full = Task(
             description="Review the intelligence gathered by the network, audio, and video specialists. Formulate a final countermeasure strategy.",
             expected_output="Strict JSON with analysis_result, confidence_score, confidence_justification, and next_step.",
             agent=strategic_predictor,
-            context=[task_cyber, task_audio, task_video] # Waits for all 3 agents
+            context=[task_cyber, task_audio, task_video]
         )
         
-        # Strategy Task for Route B (Network Context Only)
         task_strategy_basic = Task(
             description="Review the intelligence gathered by the network coordinator. Formulate a final cyber countermeasure strategy.",
             expected_output="Strict JSON with analysis_result, confidence_score, confidence_justification, and next_step.",
             agent=strategic_predictor,
-            context=[task_cyber] # Only waits for the cyber agent
+            context=[task_cyber]
         )
 
-        # 2. THE DYNAMIC ROUTER (Meets Rubric Core Technical Requirement 3.1)
+        # 2. DYNAMIC ROUTER
         input_lower = self.incident_report.lower()
-        
-        # ROUTE A: Multi-Vector Threat (Audio/Video involved)
         if "audio" in input_lower or "video" in input_lower or "camera" in input_lower:
             print("[ROUTER]: Multi-vector threat detected. Routing to Full Specialist Crew.")
             active_agents = [coordinator_agent, audio_specialist, video_specialist, strategic_predictor]
             active_tasks = [task_cyber, task_audio, task_video, task_strategy_full]
-            
-        # ROUTE B: Standard Cyber Threat (Only Network involved)
         else:
             print("[ROUTER]: Standard cyber threat detected. Bypassing media specialists.")
             active_agents = [coordinator_agent, strategic_predictor]
             active_tasks = [task_cyber, task_strategy_basic]
 
-        # 3. ASSEMBLE THE DYNAMIC CREW
+        # 3. ASSEMBLE CREW
         dynamic_crew = Crew(
             agents=active_agents,
             tasks=active_tasks,
@@ -163,8 +159,6 @@ class MASController:
 
         start_time = time.time()
         try:
-            # [Human Dev Comment 6]: To ensure the pipeline finishes without artificially degrading, 
-            # we allow a 180-second window here, while API calls are strictly capped at 30s in agents.py.
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(dynamic_crew.kickoff)
                 raw_result = future.result(timeout=180.0)
@@ -181,7 +175,12 @@ class MASController:
             return self._trigger_fallback(str(exc))
 
 
+# ==========================================
+# TERMINAL EXECUTION (NO STREAMLIT)
+# ==========================================
 if __name__ == "__main__":
+    import textwrap
+
     # Step 1: Automatically generate the JSON files
     seed_synthetic_datasets()
 
@@ -196,14 +195,11 @@ if __name__ == "__main__":
     controller = MASController(master_incident_report)
     final_output = controller.execute_pipeline()
     
-# --- HUMAN-READABLE EXECUTIVE REPORT ---
-    import textwrap
-
+    # Step 4: Display the Human-Readable Terminal Report
     print("\n" + "="*75)
     print(" 🛡️  PROJECT SENTINEL: EXECUTIVE INCIDENT REPORT  🛡️ ")
     print("="*75)
 
-    # Extract the core data safely
     input_context = final_output.get("input", "No input context provided.")
     data = final_output.get("final_output", {})
     analysis = data.get("analysis_result", "No threat analysis provided.")
@@ -211,38 +207,32 @@ if __name__ == "__main__":
     next_step = data.get("next_step", "No steps provided.")
     runtime = final_output.get("runtime_seconds", "0")
     justification = data.get("confidence_justification", "No justification provided.")
-    # Format the confidence score beautifully
+
     try:
         conf_percent = float(confidence)
-        if conf_percent <= 1.0: # Convert 0.9 to 90%
+        if conf_percent <= 1.0: 
             conf_percent = int(conf_percent * 100)
     except (ValueError, TypeError):
         conf_percent = confidence
 
-    # 1. SHOW THE CONTEXT (The Input)
     print("\n🚨 INCIDENT BRIEF (SYSTEM INPUT):")
     print("-" * 75)
     print(textwrap.fill(str(input_context), width=75))
 
-    # 2. SHOW THE METRICS
     print(f"\n⏱️  SYSTEM EXECUTION TIME : {runtime} seconds")
     print(f"🎯 AI CONFIDENCE LEVEL  : {conf_percent}%")
     print(f"🧠 CONFIDENCE RATIONALE : {justification}\n")
     
-    # 3. SHOW THE AI'S ANALYSIS
     print("-" * 75)
     print("🔍 EXECUTIVE SUMMARY (THREAT ANALYSIS):")
     print("-" * 75)
     
-    # If the AI outputs a dictionary/list instead of a paragraph, format it cleanly
     if isinstance(analysis, (dict, list)):
-        import json
         print(json.dumps(analysis, indent=2))
     else:
         print(textwrap.fill(str(analysis), width=75))
     print("\n")
 
-    # 4. SHOW THE AI'S STRATEGY
     print("-" * 75)
     print("🚀 REQUIRED ACTIONS (COUNTERMEASURES):")
     print("-" * 75)
@@ -250,26 +240,19 @@ if __name__ == "__main__":
     if isinstance(next_step, dict):
         for category, actions in next_step.items():
             print(f"\n>> {category.upper()}:")
-            
             if isinstance(actions, str):
                 wrapped_text = textwrap.fill(actions, width=70, subsequent_indent="     ")
                 print(f"   • {wrapped_text}")
-                
             elif isinstance(actions, list):
                 for action in actions:
                     print(f"   • {action}")
-                    
-            # THE NEW FIX: If the AI nests another dictionary inside
             elif isinstance(actions, dict):
                 for sub_key, sub_value in actions.items():
-                    # Clean up the key (e.g., "network_defenses" -> "Network Defenses")
                     clean_key = str(sub_key).replace('_', ' ').title()
                     wrapped_val = textwrap.fill(str(sub_value), width=65, subsequent_indent="         ")
                     print(f"   • [{clean_key}]: {wrapped_val}")
-                    
             else:
                 print(f"   • {str(actions)}")
-                
     elif isinstance(next_step, list):
         for action in next_step:
             print(f"   • {action}")
