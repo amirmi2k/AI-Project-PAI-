@@ -1,4 +1,5 @@
 import streamlit as st
+import urllib.request
 import time
 import os
 
@@ -9,18 +10,46 @@ os.environ["OTEL_SDK_DISABLED"] = "true"
 # Import your powerful backend engine directly from your main.py file!
 from main import MASController, seed_synthetic_datasets
 
+# --- DYNAMIC STATUS CHECKERS ---
+def check_llm_status() -> bool:
+    """Pings the local Ollama server to see if it is actually running."""
+    try:
+        # A quick 1-second ping to the local AI
+        with urllib.request.urlopen("http://127.0.0.1:11434/api/tags", timeout=1) as response:
+            return response.status == 200
+    except Exception:
+        return False
+
+def check_data_status() -> bool:
+    """Checks if the synthetic databases have been generated."""
+    return (os.path.exists("server_logs.json") and 
+            os.path.exists("audio_scan_results.json") and 
+            os.path.exists("video_scan_results.json"))
+
 def main():
     st.set_page_config(page_title="Project Sentinel", page_icon="🛡️", layout="wide")
     
-    # --- UI UPGRADE 1: THE GLOBAL SIDEBAR ---
+    # --- UI UPGRADE 1: DYNAMIC GLOBAL SIDEBAR ---
     with st.sidebar:
         st.image("https://img.icons8.com/color/96/000000/cyber-security.png", width=80)
         st.header("⚙️ System Status")
-        st.success("🟢 Llama 3.1: Online (Local)")
-        st.success("🟢 Data Bootstrapping: Active")
+        
+        # 1. Live LLM Check
+        if check_llm_status():
+            st.success("🟢 Llama 3.1: Online (Local)")
+        else:
+            st.error("🔴 Llama 3.1: OFFLINE")
+            st.caption("Please start Ollama before deploying agents.")
+            
+        # 2. Live Database Check
+        if check_data_status():
+            st.success("🟢 Data Bootstrapping: Active")
+        else:
+            st.warning("🟡 Data Bootstrapping: Pending")
+            
         st.info("🛡️ Sentinel MAS Ready")
         st.divider()
-        st.caption("Developed for MIIT ISB 46703")
+        st.caption("Developed for Digital Countermeasure Unit")
 
     st.title("🛡️ Project Sentinel: MAS Dashboard")
     st.write("Enter the cyber incident report below to deploy the AI Countermeasure Unit.")
@@ -28,6 +57,11 @@ def main():
     user_input = st.text_area("Incident Report:", height=150)
 
     if st.button("Deploy Agents"):
+        # Prevent the user from running the system if the AI is offline
+        if not check_llm_status():
+            st.error("🚨 Critical Error: Local LLM is offline. Cannot deploy agents.")
+            return
+
         if user_input:
             
             # --- UI UPGRADE 2: INTERACTIVE STATUS BOX ---
@@ -68,7 +102,6 @@ def main():
                     st.subheader("🚀 Required Actions")
                     next_steps = data.get("next_step", "No steps provided.")
                     
-                    # Dynamically format the steps
                     if isinstance(next_steps, dict):
                         for key, val in next_steps.items():
                             st.markdown(f"**{str(key).replace('_', ' ').title()}**: {val}")
