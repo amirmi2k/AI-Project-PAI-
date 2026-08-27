@@ -9,7 +9,7 @@ import urllib.request
 import concurrent.futures
 from typing import Any
 from crewai import Crew, Process, Task
-
+import re
 import os
 
 def seed_synthetic_datasets():
@@ -66,14 +66,27 @@ class MASController:
             return False
 
     def _safe_json_result(self, raw_result: Any) -> dict[str, Any]:
+        raw_str = str(raw_result)
         try:
-            parsed = json.loads(str(raw_result))
+            # Attempt 1: Try to parse it perfectly
+            parsed = json.loads(raw_str)
             if isinstance(parsed, dict):
                 return parsed
-            return {"analysis_result": str(raw_result), "confidence_score": 0.0, "next_step": "Manual review"}
         except json.JSONDecodeError:
-            print("\n[WARNING]: Agent output was not valid JSON. Wrapping raw output safely.")
-            return {"analysis_result": str(raw_result), "confidence_score": 0.0, "next_step": "Manual review", "format_error": True}
+            pass # Move to Attempt 2
+
+        try:
+            # Attempt 2: Forcefully extract the JSON block using Regex, ignoring conversational text
+            match = re.search(r'\{.*\}', raw_str, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group(0))
+                if isinstance(parsed, dict):
+                    return parsed
+        except json.JSONDecodeError:
+            pass
+
+        print("\n[WARNING]: Agent output was heavily malformed. Wrapping raw output safely.")
+        return {"analysis_result": raw_str, "confidence_score": 0.0, "next_step": "Manual review required due to system formatting error.", "format_error": True}
 
     def _trigger_fallback(self, error_msg: str) -> dict:
         print(f"\n[CRITICAL ERROR CAUGHT]: {error_msg}")
@@ -162,39 +175,52 @@ if __name__ == "__main__":
     controller = MASController(master_incident_report)
     final_output = controller.execute_pipeline()
     
-   # --- HUMAN-READABLE TERMINAL REPORT ---
-    print("\n" + "="*70)
+# --- HUMAN-READABLE EXECUTIVE REPORT ---
+    print("\n" + "="*75)
     print(" 🛡️  PROJECT SENTINEL: EXECUTIVE INCIDENT REPORT  🛡️ ")
-    print("="*70)
+    print("="*75)
 
-    # Extract the core data from the JSON dictionary
+    # Extract the core data safely
     data = final_output.get("final_output", {})
-    analysis = data.get("analysis_result", "No analysis provided.")
-    confidence = data.get("confidence_score", "N/A")
+    analysis = data.get("analysis_result", "No threat analysis provided.")
+    confidence = data.get("confidence_score", 0)
     next_step = data.get("next_step", "No steps provided.")
     runtime = final_output.get("runtime_seconds", "0")
 
-    print(f"\n⏱️  EXECUTION TIME : {runtime} seconds")
-    print(f"🎯 CONFIDENCE SCORE: {confidence}%\n")
+    # Format the confidence score beautifully
+    try:
+        conf_percent = float(confidence)
+        if conf_percent <= 1.0: # Convert 0.9 to 90%
+            conf_percent = int(conf_percent * 100)
+    except (ValueError, TypeError):
+        conf_percent = confidence
 
-    print("-" * 70)
-    print("🔍 THREAT ANALYSIS:")
-    print(f"{analysis}\n")
+    print(f"\n⏱️  SYSTEM EXECUTION TIME : {runtime} seconds")
+    print(f"🎯 AI CONFIDENCE LEVEL  : {conf_percent}%\n")
 
-    print("-" * 70)
-    print("🚀 RECOMMENDED COUNTERMEASURES:")
+    print("-" * 75)
+    print("🔍 EXECUTIVE SUMMARY (THREAT ANALYSIS):")
+    print("-" * 75)
+    # Break long text into a readable paragraph
+    import textwrap
+    print(textwrap.fill(str(analysis), width=75))
+    print("\n")
 
-    # Llama 3.1 sometimes outputs lists/dictionaries for the next steps. 
-    # This safely formats it whether it's a string or a complex list.
+    print("-" * 75)
+    print("🚀 REQUIRED ACTIONS (COUNTERMEASURES):")
+    print("-" * 75)
+    
+    # Format the steps cleanly whether they are lists, dicts, or strings
     if isinstance(next_step, dict):
         for category, actions in next_step.items():
             print(f"\n>> {category.upper()}:")
             for action in actions:
-                print(f"   * {action}")
+                print(f"   • {action}")
     elif isinstance(next_step, list):
         for action in next_step:
-            print(f"   * {action}")
+            print(f"   • {action}")
     else:
-        print(f"   * {next_step}")
+        # If it's a long string, wrap it nicely
+        print(textwrap.fill(str(next_step), width=75))
         
-    print("\n" + "="*70)
+    print("\n" + "="*75)

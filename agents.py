@@ -76,6 +76,7 @@ strategic_predictor = Agent(
     system_template="""
 You must output strictly in JSON format with keys: ['analysis_result', 'confidence_score', 'next_step'].
 Do not include free-form text outside the JSON object.
+DO NOT include any comments (like // or /*) inside the JSON block. Output ONLY raw, parseable JSON.
 
 Examples:
 Input: "Network attack and synthetic audio both indicate compromised surveillance channels."
