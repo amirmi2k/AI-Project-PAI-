@@ -13,9 +13,13 @@ When given an incident report, the system:
 
 ## 2. System Architecture
 
-### Orchestrator: `main.py`
+### Backend Orchestrator: `main.py`
 
 `MASController` initializes the datasets, checks whether Ollama is available, executes the CrewAI pipeline, extracts malformed JSON safely, and returns a `SYSTEM DEGRADED` fallback when the local model is unavailable, times out, or raises an error.
+
+### Streamlit Dashboard: `app.py`
+
+`app.py` provides the web dashboard, imports the backend controller from `main.py`, displays system status and analysis results, and separates the user interface from the incident-processing logic.
 
 ### Agents: `agents.py`
 
@@ -101,7 +105,7 @@ The program creates the JSON evidence files if necessary, runs the four-agent an
 From the project directory, with the virtual environment activated, run:
 
 ```bash
-streamlit run main.py
+streamlit run app.py
 ```
 
 Streamlit opens the Project Sentinel dashboard in your browser. Enter an incident report and select **Deploy Agents** to start the analysis.
@@ -129,7 +133,8 @@ The agents should adapt their analysis and recommend a response based on the new
 
 | File | Purpose |
 | --- | --- |
-| `main.py` | Seeds evidence, orchestrates the crew, and prints the report |
+| `app.py` | Streamlit web dashboard for submitting incidents and viewing results |
+| `main.py` | Seeds evidence, orchestrates the crew, and prints the terminal report |
 | `agents.py` | Configures Ollama and defines the four agents |
 | `tools.py` | Defines the local forensic analysis tools |
 | `server_logs.json` | Network evidence dataset |
